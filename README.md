@@ -38,6 +38,34 @@ Quick run through of the PDP-1.
 - Byte -> Sequence of 8 bits
 - Word -> Sequence of N bits
 
+### Low Memory Test Program
+```json
+[
+    720074,
+    760007,
+    700024,
+    240023,
+    640001,
+    600014,
+    440023,
+    250023,
+    520024,
+    600006,
+    760011,
+    600002,
+    440023,
+    230023,
+    530023,
+    760401,
+    520024,
+    600014,
+    600002,
+    0,
+    7777
+]
+```
+
 ## External Referrences
 - [Handbook](http://www.bitsavers.org/pdf/dec/pdp1/F15D_PDP1_Handbook_Oct63.pdf)
 - [Software Paper Tapes](https://github.com/hrvach/fpg1/tree/master/paper_tapes)
+- [Test Program](https://www.computerhistory.org/pdp-1/_media/pdf/DEC.pdp_1.1963.102650493.pdf)
