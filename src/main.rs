@@ -2,6 +2,8 @@
 /// Core Emulation Module
 mod pdp1 {
 
+    const DATA_MASK: u32 = 0b111111111111111111;
+
     /// Main Emulated State Of The PDP-1
     pub struct State {
         /// CM - Core Memory (4096 of 18 Bit Words)
@@ -17,7 +19,11 @@ mod pdp1 {
         /// MA - Memory Address (12 Bit)
         pub ma: u32,
         /// Instructions Register (5 Bit)
-        pub ir: u32
+        pub ir: u32,
+        /// Overflow flag
+        pub ov: bool,
+        /// Halt Flag
+        pub halt: bool,
     }
 
     /// Instruction Layout Of The PDP-1
@@ -54,39 +60,81 @@ mod pdp1 {
         return out;
     }
 
-    // Execute Instruction
+    /// Execute Instruction
     pub fn execute_instruction(ins: Instruction, state: &mut State) {
         println!("------------------------------------");
         match ins.instruction {
+            1 => {
+                println!("AND Instruction");
+                println!("C(AC) = C(AC) AND C(Y)");
+                state.ac = state.ac & state.cm[ins.address as usize];
+                state.pc += 1;
+            }
+            2 => {
+                println!("IOR Instruction");
+                println!("C(AC) = C(AC) OR C(Y)");
+                state.ac = state.ac | state.cm[ins.address as usize];
+                state.pc += 1;
+            }
+            3 => {
+                println!("XOR Instruction");
+                println!("C(AC) = C(AC) XOR C(Y)");
+                state.ac = state.ac ^ state.cm[ins.address as usize];
+                state.pc += 1;
+            }
+            4 => {
+                println!("XCT Instruction");
+                println!("Execute Instruction On C(Y)");
+                let lookup = state.cm[ins.address as usize];
+                let instruction = decode_instruction(lookup);
+                execute_instruction(instruction, state);
+                state.pc += 1;
+            }
             10 => {
                 println!("LAC Instruction");
                 println!("C(AC) = C(Y)");
                 state.ac = state.cm[ins.address as usize];
+                state.pc += 1;
             }
             12 => {
                 println!("DAC Instruction");
                 println!("C(Y) = C(AC)");
                 state.cm[ins.address as usize] = state.ac;
+                state.pc += 1;
             }
             21 => {
                 println!("SUB Instruction");
                 println!("C(AC) = C(AC) - C(Y)");
-                state.ac = state.ac - state.cm[ins.address as usize];
+                // Sign AC
+                let signed_ac = state.ac ^ DATA_MASK;
+                // One's Compliment Add
+                state.ac = signed_ac + state.cm[ins.address as usize];
+                // End Around Carry
+                if state.ac > DATA_MASK {
+                    state.ac = (state.ac + 1) & DATA_MASK;
+                }
+                // TODO: Implement Overflow
+                state.ac = state.ac ^ DATA_MASK;
+                state.pc += 1;
             }
-            _ => ()
+            35 => {
+                println!("IOT Instruction");
+                state.pc += 1;
+            }
+            _ => {
+                println!("Code {} Not Implemented", ins.instruction);
+                println!("System Halted");
+                state.halt = true;
+            }
         }
         println!("------------------------------------");
+        println!("PC -> val: {:#017b}", state.pc);
+        println!("   -> dec: {}", state.pc);
         println!("AC -> val: {:#017b}", state.ac);
-        println!("   -> dev: {}", state.ac);
+        println!("   -> dec: {}", state.ac);
         println!("IO -> val: {:#017b}", state.io);
     }
 
-    /// Instruction - Add
-    /// **OP Code 40 (10u Seconds)**
-    fn instruction_add(ins:Instruction, state: &mut State) {
-        let y = state.cm[ins.address as usize];
-        state.ac = y + state.ac;
-    }
 }
 
 
@@ -101,8 +149,8 @@ fn main() {
         // DAC | 0 | 000 000 000 111
         0b011000000000000110,
         0,
-        10,
-        4,
+        15,
+        9,
         0
     ];
 
@@ -114,7 +162,9 @@ fn main() {
         io: 0,
         pc: 0,
         ma: 0,
-        ir: 0
+        ir: 0,
+        ov: false,
+        halt: false
     };
 
     // Add Test Program To Memory
@@ -122,21 +172,17 @@ fn main() {
         state.cm[i] = mem_test_prog[i];
     }
 
-    for i in 0..state.cm.len() {
-        let mem = state.cm[i];
-        if mem != 0 {
-            let instruction = pdp1::decode_instruction(mem);
-            pdp1::execute_instruction(instruction, &mut state);
-        } else {
-            break;
-        }
+    // Run Application
+    while state.halt == false {
+        let mem = state.cm[state.pc as usize];
+        let instruction = pdp1::decode_instruction(mem);
+        pdp1::execute_instruction(instruction, &mut state);
     }
 
     println!("------------------------------------");
     println!("Core Memory");
     println!("------------------------------------");
     for i in 0..mem_test_prog.len() {
-        let mem = state.cm[i];
         println!("{:04} -> dec: {}", i, state.cm[i]);
         println!("     -> bin: {:#018b}",state.cm[i]);      
     }
